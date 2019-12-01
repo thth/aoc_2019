@@ -1,14 +1,22 @@
 defmodule One do
   def one(input) do
     input
+    |> parse()
     |> Stream.map(&calculate_fuel/1)
     |> Enum.reduce(&+/2)
   end
 
   def two(input) do
     input
+    |> parse()
     |> Stream.map(&calculate_total_fuel/1)
     |> Enum.reduce(&+/2)
+  end
+
+  def parse(raw) do
+    raw
+    |> String.split("\n")
+    |> Enum.map(&String.to_integer/1)
   end
 
   defp calculate_fuel(mass) do
@@ -28,11 +36,7 @@ defmodule One do
   end
 end
 
-raw = File.read!("input/01.txt")
-input =
-  raw
-  |> String.split("\n")
-  |> Enum.map(&String.to_integer/1)
+input = File.read!("input/01.txt")
 
 One.one(input)
 |> IO.inspect
