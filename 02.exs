@@ -51,14 +51,14 @@ defmodule Two do
   end
 
   def find_output(intcode, noun \\ 0, verb \\ 0) do
-    intcode_length = length(intcode) - 1
+    max_address = length(intcode) - 1
     output = replace_and_get_output(intcode, noun, verb)
     cond do
       output == @desired_output ->
         (100 * noun) + verb
-      verb >= intcode_length and noun >= intcode_length ->
+      verb >= max_address and noun >= max_address ->
         :not_found
-      verb >= intcode_length ->
+      verb >= max_address ->
         find_output(intcode, noun + 1, 0)
       true ->
         find_output(intcode, noun, verb + 1)
