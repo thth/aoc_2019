@@ -23,22 +23,23 @@ defmodule Two do
   end
 
   def run(intcode, i \\ 0) do
-    case Enum.at(intcode, i) do
-      99 -> intcode
-      1 ->
-        a = Enum.at(intcode, Enum.at(intcode, i + 1))
-        b = Enum.at(intcode, Enum.at(intcode, i + 2))
-        pos = Enum.at(intcode, i + 3)
-        sum = a + b
-        new_intcode = List.replace_at(intcode, pos, sum)
-        run(new_intcode, i + 4)
-      2 ->
-        a = Enum.at(intcode, Enum.at(intcode, i + 1))
-        b = Enum.at(intcode, Enum.at(intcode, i + 2))
-        pos = Enum.at(intcode, i + 3)
-        product = a * b
-        new_intcode = List.replace_at(intcode, pos, product)
-        run(new_intcode, i + 4)
+    opcode = Enum.at(intcode, i)
+    if opcode == 99 do
+      intcode
+    else
+      a = Enum.at(intcode, Enum.at(intcode, i + 1))
+      b = Enum.at(intcode, Enum.at(intcode, i + 2))
+      pos = Enum.at(intcode, i + 3)
+      case opcode do
+        1 ->
+          sum = a + b
+          new_intcode = List.replace_at(intcode, pos, sum)
+          run(new_intcode, i + 4)
+        2 ->
+          product = a * b
+          new_intcode = List.replace_at(intcode, pos, product)
+          run(new_intcode, i + 4)
+      end
     end
   end
 
