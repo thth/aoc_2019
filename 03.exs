@@ -26,8 +26,7 @@ defmodule Three do
 
   defp convert_to_mapset(list, mapset, pos \\ {0, 0})
   defp convert_to_mapset([], mapset, _), do: mapset
-  defp convert_to_mapset([ins | rest], mapset, {x, y}) do
-    {dir, steps} = String.split_at(ins, 1)
+  defp convert_to_mapset([<<dir::binary-size(1), steps::binary>> | rest], mapset, {x, y}) do
     steps = String.to_integer(steps)
     {coords_to_add, new_pos} =
       case dir do
@@ -60,8 +59,7 @@ defmodule Three do
 
   defp convert_to_stepmap(list, stepmap \\ %{}, steps_taken \\ 0, pos \\ {0, 0})
   defp convert_to_stepmap([], stepmap, _, _), do: stepmap
-  defp convert_to_stepmap([ins | rest], stepmap, steps_taken, {x, y}) do
-    {dir, steps_to_take} = String.split_at(ins, 1)
+  defp convert_to_stepmap([<<dir::binary-size(1), steps_to_take::binary>> | rest], stepmap, steps_taken, {x, y}) do
     steps_to_take = String.to_integer(steps_to_take)
     new_steps_taken = steps_taken + steps_to_take
     {steps_to_add, new_pos} =
