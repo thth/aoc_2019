@@ -12,11 +12,10 @@ defmodule Four do
   end
 
   def parse(raw) do
-    {a, b} =
+    [a, b] =
       raw
       |> String.split("-")
       |> Enum.map(&String.to_integer/1)
-      |> List.to_tuple()
     a..b
   end
 
