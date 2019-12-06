@@ -2,13 +2,11 @@
 Fifteen Sixteen Seventeen Eighteen Nineteen Twenty TwentyOne TwentyTwo TwentyThree
 TwentyFour TwentyFive)
 |> Enum.with_index()
-|> Enum.map(fn {w, i} ->
-  {w, i |> Integer.to_string() |> String.pad_leading(2, "0")}
-end)
-|> Enum.each(fn {w, i} ->
+|> Enum.each(fn {word, i} ->
+  i = i |> Integer.to_string() |> String.pad_leading(2, "0")
   content =
     """
-    defmodule #{w} do
+    defmodule #{word} do
       def one(input) do
         input
         |> parse()
@@ -26,10 +24,10 @@ end)
 
     input = File.read!("input/#{i}.txt")
 
-    #{w}.one(input)
+    #{word}.one(input)
     |> IO.inspect
 
-    #{w}.two(input)
+    #{word}.two(input)
     |> IO.inspect
     """
   File.write!("#{i}.exs", content)
