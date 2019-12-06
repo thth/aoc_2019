@@ -23,7 +23,7 @@ defmodule Six do
     |> String.trim()
     |> String.split("\n")
     |> Stream.map(&(String.split(&1, ")")))
-    |> Enum.map(&List.to_tuple/1)
+    |> Stream.map(&List.to_tuple/1)
     |> Enum.into(%{}, fn {orbitee, orbiter} -> {orbiter, orbitee} end)
   end
 
