@@ -105,7 +105,7 @@ defmodule Five do
     full_code =
       n
       |> Integer.to_string()
-      |> String.pad_leading(5, "0")
+      |> String.pad_leading(2, "0")
       |> String.to_charlist()
     opcode =
       full_code
