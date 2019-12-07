@@ -1,4 +1,5 @@
 defmodule Six do
+  @center "COM"
   @satellite_a "YOU" 
   @satellite_b "SAN"
 
@@ -28,8 +29,8 @@ defmodule Six do
   end
 
   def count_orbits(orbit_map, satellite_queue, current, orbit_count \\ 0)
-  def count_orbits(_orbit_map, [], "COM", orbit_count), do: orbit_count
-  def count_orbits(orbit_map, [next_satellite | rest_queue], "COM", orbit_count), do:
+  def count_orbits(_orbit_map, [], @center, orbit_count), do: orbit_count
+  def count_orbits(orbit_map, [next_satellite | rest_queue], @center, orbit_count), do:
     count_orbits(orbit_map, rest_queue, next_satellite, orbit_count)
   def count_orbits(orbit_map, satellite_queue, current, orbit_count) do
     next_current = Map.get(orbit_map, current)
@@ -46,11 +47,11 @@ defmodule Six do
     )
   end
 
-  def list_ancestors(orbit_map, satellite, ancestors \\ [])
-  def list_ancestors(_orbit_map, "COM", ancestors), do: ancestors ++ ["COM"]
-  def list_ancestors(orbit_map, satellite, ancestors) do
-    parent = Map.get(orbit_map, satellite)
-    list_ancestors(orbit_map, parent, ancestors ++ [parent])
+  def list_ancestors(orbit_map, satellite, ancestors \\ []) do
+    case Map.get(orbit_map, satellite) do
+      nil -> ancestors
+      parent -> list_ancestors(orbit_map, parent, ancestors ++ [parent])
+    end
   end
 
   def find_closest_ancestor([], _b_ancestors), do: nil
