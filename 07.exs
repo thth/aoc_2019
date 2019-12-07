@@ -133,8 +133,8 @@ defmodule Seven do
   end
 
   @initial_input 0
-  @one_phase_settings 0..4
-  @two_phase_settings 5..9
+  @one_phase_settings [0, 1, 2, 3, 4]
+  @two_phase_settings [5, 6, 7, 8, 9]
 
   def one(input) do
     input
@@ -161,7 +161,6 @@ defmodule Seven do
 
   def find_max_thrust(intcode) do
     @one_phase_settings
-    |> Enum.to_list()
     |> permutations()
     |> Enum.map(&(calculate_thrust(intcode, &1)))
     |> Enum.max()
@@ -187,7 +186,6 @@ defmodule Seven do
 
   def find_max_feedback_thrust(intcode) do
     @two_phase_settings
-    |> Enum.to_list()
     |> permutations()
     |> Enum.map(&(calculate_feedback_thrust(intcode, &1)))
     |> Enum.max()
