@@ -1,4 +1,137 @@
 defmodule Seven do
+  defmodule Intcode do
+    defstruct intcode: nil, inputs: [], outputs: [], i: 0, halted?: false
+
+    def run_intcode(state) do
+      case step_intcode(state) do
+        {:waiting_for_input, new_state} -> new_state
+        {:halt, new_state} -> new_state
+        {:continue, new_state} -> run_intcode(new_state)
+      end
+    end
+
+    def state_take_output(state) do
+      case state.outputs do
+        [] -> {nil, state}
+        [output | rest] ->
+          {
+            output,
+            %Intcode{state | outputs: rest}
+          }
+      end
+    end
+
+    def state_insert_input(state, input) do
+      %Intcode{state | inputs: state.inputs ++ [input]}
+    end
+
+    defp step_intcode(%Intcode{
+      intcode: intcode,
+      inputs: inputs,
+      outputs: outputs,
+      i: i
+      } = state) do
+
+      {opcode, param_modes} = parse_opcode(Enum.at(intcode, i))
+
+      case opcode do
+        99 -> # halt
+          {:halt, %Intcode{state | halted?: true}}
+        1 -> # sum
+          a = get_value(intcode, param_modes, i, 0)
+          b = get_value(intcode, param_modes, i, 1)
+          pos = Enum.at(intcode, i + 3)
+          sum = a + b
+          new_intcode = List.replace_at(intcode, pos, sum)
+          new_i = i + 4
+          {:continue, %Intcode{state | intcode: new_intcode, i: new_i}}
+        2 -> # product
+          a = get_value(intcode, param_modes, i, 0)
+          b = get_value(intcode, param_modes, i, 1)
+          pos = Enum.at(intcode, i + 3)
+          product = a * b
+          new_intcode = List.replace_at(intcode, pos, product)
+          new_i = i + 4
+          {:continue, %Intcode{state | intcode: new_intcode, i: new_i}}
+        3 -> # insert input
+          case inputs do
+            [] ->
+              {:waiting_for_input, state}
+            [input | rest_inputs] ->
+              pos = Enum.at(intcode, i + 1)
+              new_intcode = List.replace_at(intcode, pos, input)
+              total_codes = 2
+              new_i = i + total_codes
+              {:continue, %Intcode{state | intcode: new_intcode, inputs: rest_inputs, i: new_i}}
+          end
+        4 -> # enqueue output
+          output_pos = Enum.at(intcode, i + 1)
+          output = Enum.at(intcode, output_pos)
+          new_outputs = outputs ++ [output]
+          total_codes = 2
+          new_i = i + total_codes
+          {:continue, %Intcode{state | outputs: new_outputs, i: new_i}}
+        5 -> # jump-if-true
+          true? = true? = get_value(intcode, param_modes, i, 0) != 0
+          total_codes = 3
+          new_i = if true?, do: get_value(intcode, param_modes, i, 1), else: i + total_codes
+          {:continue, %Intcode{state | i: new_i}}
+        6 -> # jump-if-false
+          false? = get_value(intcode, param_modes, i, 0) == 0
+          total_codes = 3
+          new_i = if false?, do: get_value(intcode, param_modes, i, 1), else: i + total_codes
+          {:continue, %Intcode{state | i: new_i}}
+        7 -> # less than
+          a = get_value(intcode, param_modes, i, 0)
+          b = get_value(intcode, param_modes, i, 1)
+          result = if (a < b), do: 1, else: 0
+          pos = Enum.at(intcode, i + 3)
+          new_intcode = List.replace_at(intcode, pos, result)
+          new_i = i + 4
+          {:continue, %Intcode{state | intcode: new_intcode, i: new_i}}
+        8 -> # equals
+          a = get_value(intcode, param_modes, i, 0)
+          b = get_value(intcode, param_modes, i, 1)
+          result = if (a == b), do: 1, else: 0
+          pos = Enum.at(intcode, i + 3)
+          new_intcode = List.replace_at(intcode, pos, result)
+          new_i = i + 4
+          {:continue, %Intcode{state | intcode: new_intcode, i: new_i}}
+      end
+    end
+
+    defp get_value(intcode, param_modes, i, param_number) do
+      param_mode = Enum.at(param_modes, param_number, 0)
+      case param_mode do
+        1 -> # immediate
+          Enum.at(intcode, i + param_number + 1)
+        0 -> # position
+          Enum.at(intcode, 225)
+          Enum.at(intcode, Enum.at(intcode, i + param_number + 1))
+      end
+    end
+
+    defp parse_opcode(n) do
+      full_code =
+        n
+        |> Integer.to_string()
+        |> String.pad_leading(2, "0")
+        |> String.to_charlist()
+      opcode =
+        full_code
+        |> Enum.slice(-2, 2)
+        |> List.to_integer()
+      parameters =
+        full_code
+        |> Enum.slice(0..-3)
+        |> Enum.reverse()
+        |> List.to_string()
+        |> String.graphemes()
+        |> Enum.map(&String.to_integer/1)
+      {opcode, parameters}
+    end
+  end
+
   @initial_input 0
   @one_phase_settings 0..4
   @two_phase_settings 5..9
@@ -21,8 +154,10 @@ defmodule Seven do
     |> Enum.map(&String.to_integer/1)
   end
 
+  # miiight be copypasted
   def permutations([]), do: [[]]
-  def permutations(list), do: for elem <- list, rest <- permutations(list -- [elem]), do: [elem|rest]
+  def permutations(list),
+    do: for elem <- list, rest <- permutations(list -- [elem]), do: [elem | rest]
 
   def find_max_thrust(intcode) do
     @one_phase_settings
@@ -33,10 +168,21 @@ defmodule Seven do
   end
 
   def calculate_thrust(intcode, order) do
-    Enum.reduce(order, @initial_input, fn x, acc ->
-      {_intcode, outputs} = run(intcode, [x, acc])
-      List.first(outputs)
+    initial_states =
+      order
+      |> Enum.into(%{}, fn n ->
+        {n, %Intcode{intcode: intcode, inputs: [n]}}
+      end)
+
+    Enum.reduce(order, {initial_states, @initial_input}, fn n, {states, signal} ->
+      {output, new_state} =
+        states[n]
+        |> Intcode.state_insert_input(signal)
+        |> Intcode.run_intcode()
+        |> Intcode.state_take_output()
+      {Map.put(states, n, new_state), output}
     end)
+    |> elem(1)
   end
 
   def find_max_feedback_thrust(intcode) do
@@ -48,201 +194,35 @@ defmodule Seven do
   end
 
   def calculate_feedback_thrust(intcode, order) do
-    intcode_states =
-      for n <- @two_phase_settings, into: %{}, do: {n,
-        %{
-          intcode: intcode,
-          i: 0,
-          inputs: [n]
-        }
-      }
+    initial_states =
+      order
+      |> Enum.into(%{}, fn n ->
+        {n, %Intcode{intcode: intcode, inputs: [n]}}
+      end)
     first_thruster = List.first(order)
-    loop_feedback_thrust(intcode_states, order, first_thruster)
+    loop_feedback_thrust(initial_states, order, first_thruster)
   end
 
-  def loop_feedback_thrust(intcode_states, order, current_thruster, signal \\ 0) do
-    state = intcode_states[current_thruster]
-    state_with_signal = %{state | inputs: state.inputs ++ [signal]}
-    case run_two(state.intcode, state_with_signal.inputs, [], state_with_signal.i) do
-      {:halt, {_intcode, _outputs}} ->
-        signal
-      {:output, {new_intcode, outputs, i}} ->
-        new_state = %{
-          state |
-          intcode: new_intcode,
-          i: i,
-          inputs: []
-        }
-        new_states = Map.put(intcode_states, current_thruster, new_state)
-
-        next_thruster =
-          if (o = Enum.find_index(order, &(&1 == current_thruster))) == (length(order) - 1) do
-            List.first(order)
-          else
-            Enum.at(order, o + 1)
-          end
-
-        [new_signal] = outputs
-
-        loop_feedback_thrust(new_states, order, next_thruster, new_signal)
-    end
-  end
-
-  def run(intcode, inputs, outputs \\ [], i \\ 0) do
-    {opcode, param_modes} = parse_opcode(Enum.at(intcode, i))
-    if opcode == 99 do
-      {intcode, outputs}
+  def loop_feedback_thrust(states, order, current, signal \\ 0) do
+    %Intcode{halted?: halted?} = states[current]
+    if halted? do
+      signal
     else
-      case opcode do
-        1 ->
-          a = get_value(intcode, param_modes, i, 0)
-          b = get_value(intcode, param_modes, i, 1)
-          pos = Enum.at(intcode, i + 3)
-          sum = a + b
-          new_intcode = List.replace_at(intcode, pos, sum)
-          run(new_intcode, inputs, outputs, i + 4)
-        2 ->
-          a = get_value(intcode, param_modes, i, 0)
-          b = get_value(intcode, param_modes, i, 1)
-          pos = Enum.at(intcode, i + 3)
-          product = a * b
-          new_intcode = List.replace_at(intcode, pos, product)
-          run(new_intcode, inputs, outputs, i + 4)
-        3 ->
-          total_codes = 2
-          {input, new_inputs} = List.pop_at(inputs, 0)
-          pos = Enum.at(intcode, i + 1)
-          new_intcode = List.replace_at(intcode, pos, input)
-          run(new_intcode, new_inputs, outputs, i + total_codes)
-        4 ->
-          total_codes = 2
-          output_pos = Enum.at(intcode, i + 1)
-          output = Enum.at(intcode, output_pos)
-          new_outputs = outputs ++ [output]
-          run(intcode, inputs, new_outputs, i + total_codes)
-        5 ->
-          total_codes = 3
-          true? = get_value(intcode, param_modes, i, 0) != 0
-          new_i = if true?, do: get_value(intcode, param_modes, i, 1), else: i + total_codes
-          run(intcode, inputs, outputs, new_i)
-        6 ->
-          total_codes = 3
-          false? = get_value(intcode, param_modes, i, 0) == 0
-          new_i = if false?, do: get_value(intcode, param_modes, i, 1), else: i + total_codes
-          run(intcode, inputs, outputs, new_i)
-        7 ->
-          a = get_value(intcode, param_modes, i, 0)
-          b = get_value(intcode, param_modes, i, 1)
-          result = if (a < b), do: 1, else: 0
-          pos = Enum.at(intcode, i + 3)
-          new_intcode = List.replace_at(intcode, pos, result)
-          run(new_intcode, inputs, outputs, i + 4)
-        8 ->
-          a = get_value(intcode, param_modes, i, 0)
-          b = get_value(intcode, param_modes, i, 1)
-          result = if (a == b), do: 1, else: 0
-          pos = Enum.at(intcode, i + 3)
-          new_intcode = List.replace_at(intcode, pos, result)
-          run(new_intcode, inputs, outputs, i + 4)
-      end
+      {output, new_state} =
+        states[current]
+        |> Intcode.state_insert_input(signal)
+        |> Intcode.run_intcode()
+        |> Intcode.state_take_output()
+      new_states = Map.put(states, current, new_state)
+      next_thruster = find_next_thruster(order, current)
+      loop_feedback_thrust(new_states, order, next_thruster, output)
     end
   end
 
-  # ghetto initial quick duct tape solution
-  def run_two(intcode, inputs, outputs \\ [], i \\ 0) do
-    {opcode, param_modes} = parse_opcode(Enum.at(intcode, i))
-    if opcode == 99 do
-      {:halt, {intcode, outputs}}
-    else
-      case opcode do
-        1 ->
-          a = get_value(intcode, param_modes, i, 0)
-          b = get_value(intcode, param_modes, i, 1)
-          pos = Enum.at(intcode, i + 3)
-          sum = a + b
-          new_intcode = List.replace_at(intcode, pos, sum)
-          run_two(new_intcode, inputs, outputs, i + 4)
-        2 ->
-          a = get_value(intcode, param_modes, i, 0)
-          b = get_value(intcode, param_modes, i, 1)
-          pos = Enum.at(intcode, i + 3)
-          product = a * b
-          new_intcode = List.replace_at(intcode, pos, product)
-          run_two(new_intcode, inputs, outputs, i + 4)
-        3 ->
-          total_codes = 2
-          {input, new_inputs} = List.pop_at(inputs, 0)
-          pos = Enum.at(intcode, i + 1)
-          new_intcode = List.replace_at(intcode, pos, input)
-          run_two(new_intcode, new_inputs, outputs, i + total_codes)
-        4 ->
-          total_codes = 2
-          output_pos = Enum.at(intcode, i + 1)
-          output = Enum.at(intcode, output_pos)
-          new_outputs = outputs ++ [output]
-          # run(intcode, inputs, new_outputs, i + total_codes)
-          {:output, {intcode, new_outputs, i + total_codes}}
-        5 ->
-          total_codes = 3
-          true? = get_value(intcode, param_modes, i, 0) != 0
-          new_i = if true?, do: get_value(intcode, param_modes, i, 1), else: i + total_codes
-          run_two(intcode, inputs, outputs, new_i)
-        6 ->
-          total_codes = 3
-          false? = get_value(intcode, param_modes, i, 0) == 0
-          new_i = if false?, do: get_value(intcode, param_modes, i, 1), else: i + total_codes
-          run_two(intcode, inputs, outputs, new_i)
-        7 ->
-          a = get_value(intcode, param_modes, i, 0)
-          b = get_value(intcode, param_modes, i, 1)
-          result = if (a < b), do: 1, else: 0
-          pos = Enum.at(intcode, i + 3)
-          new_intcode = List.replace_at(intcode, pos, result)
-          run_two(new_intcode, inputs, outputs, i + 4)
-        8 ->
-          a = get_value(intcode, param_modes, i, 0)
-          b = get_value(intcode, param_modes, i, 1)
-          result = if (a == b), do: 1, else: 0
-          pos = Enum.at(intcode, i + 3)
-          new_intcode = List.replace_at(intcode, pos, result)
-          run_two(new_intcode, inputs, outputs, i + 4)
-      end
-    end
-  end
-
-  def get_value(intcode, param_modes, i, param_number) do
-    param_mode = Enum.at(param_modes, param_number, 0)
-    case param_mode do
-      1 -> # immediate
-        Enum.at(intcode, i + param_number + 1)
-      0 -> # position
-        Enum.at(intcode, 225)
-        Enum.at(intcode, Enum.at(intcode, i + param_number + 1))
-    end
-  end
-
-  def get_param_mode(param_modes, i) do
-    Enum.fetch(param_modes, i) || 0
-  end
-
-  def parse_opcode(n) do
-    full_code =
-      n
-      |> Integer.to_string()
-      |> String.pad_leading(2, "0")
-      |> String.to_charlist()
-    opcode =
-      full_code
-      |> Enum.slice(-2, 2)
-      |> List.to_integer()
-    parameters =
-      full_code
-      |> Enum.slice(0..-3)
-      |> Enum.reverse()
-      |> List.to_string()
-      |> String.graphemes()
-      |> Enum.map(&String.to_integer/1)
-    {opcode, parameters}
+  def find_next_thruster(order, current_thruster) do
+    i = Enum.find_index(order, &(&1 == current_thruster))
+    Stream.cycle(order)
+    |> Enum.at(i + 1)
   end
 end
 
