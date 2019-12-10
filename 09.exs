@@ -3,29 +3,29 @@ defmodule Nine do
     defstruct intcode: nil, inputs: [], outputs: [], i: 0,
               relative_base: 0, halted?: false
 
+    def new(list) do
+      intcode =
+        list
+        |> Stream.map(&String.to_integer/1)
+        |> Stream.with_index()
+        |> Enum.into(%{}, fn {n, i} -> {i, n} end)
+      %Intcode{intcode: intcode}
+    end
+
+    def insert_input(state, input) do
+      %Intcode{state | inputs: state.inputs ++ [input]}
+    end
+
+    def take_output(%Intcode{outputs: []} = state), do: {nil, state}
+    def take_output(%Intcode{outputs: [output | rest]} = state), do:
+      {output, %Intcode{state | outputs: rest}}
+
     def run_intcode(state) do
       case step_intcode(state) do
         {:waiting_for_input, new_state} -> new_state
         {:halt, new_state} -> new_state
-        {:continue, new_state} ->
-          # debug_print(new_state)
-          run_intcode(new_state)
+        {:continue, new_state} -> run_intcode(new_state)
       end
-    end
-
-    def state_take_output(state) do
-      case state.outputs do
-        [] -> {nil, state}
-        [output | rest] ->
-          {
-            output,
-            %Intcode{state | outputs: rest}
-          }
-      end
-    end
-
-    def state_insert_input(state, input) do
-      %Intcode{state | inputs: state.inputs ++ [input]}
     end
 
     defp step_intcode(%Intcode{
@@ -36,85 +36,114 @@ defmodule Nine do
       relative_base: relative_base
       } = state) do
 
-      {opcode, param_modes} = parse_opcode(intcode_at(intcode, i))
+      [opcode | _param_modes] = ins_modes = parse_opcode(intcode_at(intcode, i))
 
       case opcode do
         99 -> # halt
           {:halt, %Intcode{state | halted?: true}}
         1 -> # sum
-          a = get_value(intcode, i, relative_base, param_modes, 0)
-          b = get_value(intcode, i, relative_base, param_modes, 1)
-          pos = get_address(intcode, i, relative_base, param_modes, 2)
+          a = get_value(intcode, i, relative_base, ins_modes, 1)
+          b = get_value(intcode, i, relative_base, ins_modes, 2)
+          pos = get_address(intcode, i, relative_base, ins_modes, 3)
           sum = a + b
-          new_intcode = intcode_insert(intcode, pos, sum)
-          new_i = i + 4
-          {:continue, %Intcode{state | intcode: new_intcode, i: new_i}}
+          {:continue, %Intcode{state |
+            intcode: intcode_insert(intcode, pos, sum),
+            i: i + 4
+          }}
         2 -> # product
-          a = get_value(intcode, i, relative_base, param_modes, 0)
-          b = get_value(intcode, i, relative_base, param_modes, 1)
-          pos = get_address(intcode, i, relative_base, param_modes, 2)
+          a = get_value(intcode, i, relative_base, ins_modes, 1)
+          b = get_value(intcode, i, relative_base, ins_modes, 2)
+          pos = get_address(intcode, i, relative_base, ins_modes, 3)
           product = a * b
-          new_intcode = intcode_insert(intcode, pos, product)
-          new_i = i + 4
-          {:continue, %Intcode{state | intcode: new_intcode, i: new_i}}
+          {:continue, %Intcode{state |
+            intcode: intcode_insert(intcode, pos, product),
+            i: i + 4
+          }}
         3 -> # insert input
           case inputs do
             [] ->
               {:waiting_for_input, state}
             [input | rest_inputs] ->
-              pos = get_address(intcode, i, relative_base, param_modes, 0)
-              new_intcode = intcode_insert(intcode, pos, input)
-              total_codes = 2
-              new_i = i + total_codes
-              {:continue, %Intcode{state | intcode: new_intcode, inputs: rest_inputs, i: new_i}}
+              pos = get_address(intcode, i, relative_base, ins_modes, 1)
+              {:continue, %Intcode{state |
+                intcode: intcode_insert(intcode, pos, input),
+                inputs: rest_inputs,
+                i: i + 2
+              }}
           end
         4 -> # enqueue output
-          output = get_value(intcode, i, relative_base, param_modes, 0)
-          new_outputs = outputs ++ [output]
-          total_codes = 2
-          new_i = i + total_codes
-          {:continue, %Intcode{state | outputs: new_outputs, i: new_i}}
+          output = get_value(intcode, i, relative_base, ins_modes, 1)
+          {:continue, %Intcode{state |
+            outputs: outputs ++ [output],
+            i: i + 2
+          }}
         5 -> # jump-if-true
-          true? = true? = get_value(intcode, i, relative_base, param_modes, 0) != 0
-          total_codes = 3
+          true? = get_value(intcode, i, relative_base, ins_modes, 1) != 0
           new_i = if true?,
-            do: get_value(intcode, i, relative_base, param_modes, 1),
-            else: i + total_codes
-          {:continue, %Intcode{state | i: new_i}}
+            do: get_value(intcode, i, relative_base, ins_modes, 2),
+            else: i + 3
+          {:continue, %Intcode{state |
+            i: new_i
+          }}
         6 -> # jump-if-false
-          false? = get_value(intcode, i, relative_base, param_modes, 0) == 0
-          total_codes = 3
+          false? = get_value(intcode, i, relative_base, ins_modes, 1) == 0
           new_i = if false?,
-            do: get_value(intcode, i, relative_base, param_modes, 1),
-            else: i + total_codes
-          {:continue, %Intcode{state | i: new_i}}
+            do: get_value(intcode, i, relative_base, ins_modes, 2),
+            else: i + 3
+          {:continue, %Intcode{state |
+            i: new_i
+          }}
         7 -> # less than
-          a = get_value(intcode, i, relative_base, param_modes, 0)
-          b = get_value(intcode, i, relative_base, param_modes, 1)
+          a = get_value(intcode, i, relative_base, ins_modes, 1)
+          b = get_value(intcode, i, relative_base, ins_modes, 2)
+          pos = get_address(intcode, i, relative_base, ins_modes, 3)
           result = if (a < b), do: 1, else: 0
-          pos = get_address(intcode, i, relative_base, param_modes, 2)
-          new_intcode = intcode_insert(intcode, pos, result)
-          new_i = i + 4
-          {:continue, %Intcode{state | intcode: new_intcode, i: new_i}}
+          {:continue, %Intcode{state |
+            intcode: intcode_insert(intcode, pos, result),
+            i: i + 4
+          }}
         8 -> # equals
-          a = get_value(intcode, i, relative_base, param_modes, 0)
-          b = get_value(intcode, i, relative_base, param_modes, 1)
+          a = get_value(intcode, i, relative_base, ins_modes, 1)
+          b = get_value(intcode, i, relative_base, ins_modes, 2)
+          pos = get_address(intcode, i, relative_base, ins_modes, 3)
           result = if (a == b), do: 1, else: 0
-          pos = get_address(intcode, i, relative_base, param_modes, 2)
-          new_intcode = intcode_insert(intcode, pos, result)
-          new_i = i + 4
-          {:continue, %Intcode{state | intcode: new_intcode, i: new_i}}
+          {:continue, %Intcode{state |
+            intcode: intcode_insert(intcode, pos, result),
+            i: i + 4
+          }}
         9 -> # adjust relative base
-          a = get_value(intcode, i, relative_base, param_modes, 0)
+          a = get_value(intcode, i, relative_base, ins_modes, 1)
           new_relative_base = relative_base + a
-          new_i = i + 2
-          {:continue, %Intcode{state | relative_base: new_relative_base, i: new_i}}
+          {:continue, %Intcode{state |
+            relative_base: new_relative_base,
+            i: i + 2
+          }}
       end
     end
 
-    defp get_value(intcode, i, relative_base, param_modes, param_number) do
-      param_mode = Enum.at(param_modes, param_number, 0)
-      param = intcode_at(intcode, i + param_number + 1)
+    defp intcode_at(intcode, i) do
+      Map.get(intcode, i, 0)
+    end
+
+    defp intcode_insert(intcode, i, value) do
+      Map.put(intcode, i, value)
+    end
+
+    # output of [opcode | param_modes] referred to as ins_modes in variable names
+    defp parse_opcode(n) when n < 100, do: [n]
+    defp parse_opcode(n) do
+      opcode = rem(n, 100)
+      param_modes =
+        n
+        |> div(100)
+        |> Integer.digits()
+        |> Enum.reverse()
+      [opcode | param_modes]
+    end
+
+    defp get_value(intcode, i, relative_base, ins_modes, param_index) do
+      param_mode = Enum.at(ins_modes, param_index, 0)
+      param = intcode_at(intcode, i + param_index)
 
       case param_mode do
         2 -> # relative
@@ -126,9 +155,9 @@ defmodule Nine do
       end
     end
 
-    defp get_address(intcode, i, relative_base, param_modes, param_number) do
-      param_mode = Enum.at(param_modes, param_number, 0)
-      param = intcode_at(intcode, i + param_number + 1)
+    defp get_address(intcode, i, relative_base, ins_modes, param_index) do
+      param_mode = Enum.at(ins_modes, param_index, 0)
+      param = intcode_at(intcode, i + param_index)
 
       case param_mode do
         0 -> # position
@@ -136,56 +165,6 @@ defmodule Nine do
         2 -> # relative
           param + relative_base
       end
-    end
-
-    defp parse_opcode(n) do
-      full_code =
-        n
-        |> Integer.to_string()
-        |> String.pad_leading(2, "0")
-        |> String.to_charlist()
-      opcode =
-        full_code
-        |> Enum.slice(-2, 2)
-        |> List.to_integer()
-      parameters =
-        full_code
-        |> Enum.slice(0..-3)
-        |> Enum.reverse()
-        |> List.to_string()
-        |> String.graphemes()
-        |> Enum.map(&String.to_integer/1)
-      {opcode, parameters}
-    end
-
-    defp intcode_at(intcode, i) do
-      Enum.at(intcode, i, 0)
-    end
-
-    defp intcode_insert(intcode, i, value) when i < length(intcode),
-      do: List.replace_at(intcode, i, value)
-    defp intcode_insert(intcode, i, value) do
-      filler_positions = i - length(intcode)
-      intcode ++ List.duplicate(0, filler_positions) ++ [value]
-    end
-
-    def debug_print(%Intcode{intcode: intcode, i: i, relative_base: relative_base}) do
-      File.mkdir_p!(Path.dirname("debug"))
-      output =
-        intcode
-        |> Enum.map(&Integer.to_string/1)
-        |> Enum.with_index()
-        |> Enum.reduce("", fn {x, current_i}, acc ->
-          li = String.pad_leading(current_i |> Integer.to_string(), 4, "0")
-          if current_i == i do
-            acc <> "\n#{li}: #{x} <"
-          else
-            acc <> "\n#{li}: #{x}"
-          end
-        end)
-      path = "debug/#{:os.system_time()}.txt"
-      File.write(path, "#{Integer.to_string(relative_base)}")
-      File.write(path, output, [:append])
     end
   end
 
@@ -195,27 +174,25 @@ defmodule Nine do
   def one(input) do
     input
     |> parse()
-    |> Intcode.state_insert_input(@one_input)
+    |> Intcode.insert_input(@one_input)
     |> Intcode.run_intcode()
-    |> Intcode.state_take_output()
+    |> Intcode.take_output()
     |> elem(0)
   end
 
   def two(input) do
     input
     |> parse()
-    |> Intcode.state_insert_input(@two_input)
+    |> Intcode.insert_input(@two_input)
     |> Intcode.run_intcode()
-    |> Intcode.state_take_output()
+    |> Intcode.take_output()
     |> elem(0)
   end
 
   def parse(raw) do
-    list =
-      raw
-      |> String.split(",")
-      |> Enum.map(&String.to_integer/1)
-    %Intcode{intcode: list}
+    raw
+    |> String.split(",")
+    |> Intcode.new()
   end
 end
 
