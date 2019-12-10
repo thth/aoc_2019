@@ -1,6 +1,6 @@
 defmodule Nine do
   defmodule Intcode do
-    defstruct intcode: nil, inputs: [], outputs: [], i: 0,
+    defstruct intcode: nil, inputs: [], outputs: [], pointer: 0,
               relative_base: 0, halted?: false
 
     def new(list) do
@@ -32,101 +32,101 @@ defmodule Nine do
       intcode: intcode,
       inputs: inputs,
       outputs: outputs,
-      i: i,
+      pointer: pointer,
       relative_base: relative_base
       } = state) do
 
-      [opcode | _param_modes] = ins_modes = parse_opcode(intcode_at(intcode, i))
+      [opcode | _param_modes] = ins_modes = parse_opcode(intcode_at(intcode, pointer))
 
       case opcode do
         99 -> # halt
           {:halt, %Intcode{state | halted?: true}}
         1 -> # sum
-          a = get_value(intcode, i, relative_base, ins_modes, 1)
-          b = get_value(intcode, i, relative_base, ins_modes, 2)
-          pos = get_address(intcode, i, relative_base, ins_modes, 3)
+          a = get_value(intcode, pointer, relative_base, ins_modes, 1)
+          b = get_value(intcode, pointer, relative_base, ins_modes, 2)
+          pos = get_address(intcode, pointer, relative_base, ins_modes, 3)
           sum = a + b
           {:continue, %Intcode{state |
             intcode: intcode_insert(intcode, pos, sum),
-            i: i + 4
+            pointer: pointer + 4
           }}
         2 -> # product
-          a = get_value(intcode, i, relative_base, ins_modes, 1)
-          b = get_value(intcode, i, relative_base, ins_modes, 2)
-          pos = get_address(intcode, i, relative_base, ins_modes, 3)
+          a = get_value(intcode, pointer, relative_base, ins_modes, 1)
+          b = get_value(intcode, pointer, relative_base, ins_modes, 2)
+          pos = get_address(intcode, pointer, relative_base, ins_modes, 3)
           product = a * b
           {:continue, %Intcode{state |
             intcode: intcode_insert(intcode, pos, product),
-            i: i + 4
+            pointer: pointer + 4
           }}
         3 -> # insert input
           case inputs do
             [] ->
               {:waiting_for_input, state}
             [input | rest_inputs] ->
-              pos = get_address(intcode, i, relative_base, ins_modes, 1)
+              pos = get_address(intcode, pointer, relative_base, ins_modes, 1)
               {:continue, %Intcode{state |
                 intcode: intcode_insert(intcode, pos, input),
                 inputs: rest_inputs,
-                i: i + 2
+                pointer: pointer + 2
               }}
           end
         4 -> # enqueue output
-          output = get_value(intcode, i, relative_base, ins_modes, 1)
+          output = get_value(intcode, pointer, relative_base, ins_modes, 1)
           {:continue, %Intcode{state |
             outputs: outputs ++ [output],
-            i: i + 2
+            pointer: pointer + 2
           }}
         5 -> # jump-if-true
-          true? = get_value(intcode, i, relative_base, ins_modes, 1) != 0
-          new_i = if true?,
-            do: get_value(intcode, i, relative_base, ins_modes, 2),
-            else: i + 3
+          true? = get_value(intcode, pointer, relative_base, ins_modes, 1) != 0
+          new_address = if true?,
+            do: get_value(intcode, pointer, relative_base, ins_modes, 2),
+            else: pointer + 3
           {:continue, %Intcode{state |
-            i: new_i
+            pointer: new_address
           }}
         6 -> # jump-if-false
-          false? = get_value(intcode, i, relative_base, ins_modes, 1) == 0
-          new_i = if false?,
-            do: get_value(intcode, i, relative_base, ins_modes, 2),
-            else: i + 3
+          false? = get_value(intcode, pointer, relative_base, ins_modes, 1) == 0
+          new_address = if false?,
+            do: get_value(intcode, pointer, relative_base, ins_modes, 2),
+            else: pointer + 3
           {:continue, %Intcode{state |
-            i: new_i
+            pointer: new_address
           }}
         7 -> # less than
-          a = get_value(intcode, i, relative_base, ins_modes, 1)
-          b = get_value(intcode, i, relative_base, ins_modes, 2)
-          pos = get_address(intcode, i, relative_base, ins_modes, 3)
+          a = get_value(intcode, pointer, relative_base, ins_modes, 1)
+          b = get_value(intcode, pointer, relative_base, ins_modes, 2)
+          pos = get_address(intcode, pointer, relative_base, ins_modes, 3)
           result = if (a < b), do: 1, else: 0
           {:continue, %Intcode{state |
             intcode: intcode_insert(intcode, pos, result),
-            i: i + 4
+            pointer: pointer + 4
           }}
         8 -> # equals
-          a = get_value(intcode, i, relative_base, ins_modes, 1)
-          b = get_value(intcode, i, relative_base, ins_modes, 2)
-          pos = get_address(intcode, i, relative_base, ins_modes, 3)
+          a = get_value(intcode, pointer, relative_base, ins_modes, 1)
+          b = get_value(intcode, pointer, relative_base, ins_modes, 2)
+          pos = get_address(intcode, pointer, relative_base, ins_modes, 3)
           result = if (a == b), do: 1, else: 0
           {:continue, %Intcode{state |
             intcode: intcode_insert(intcode, pos, result),
-            i: i + 4
+            pointer: pointer + 4
           }}
         9 -> # adjust relative base
-          a = get_value(intcode, i, relative_base, ins_modes, 1)
+          a = get_value(intcode, pointer, relative_base, ins_modes, 1)
           new_relative_base = relative_base + a
           {:continue, %Intcode{state |
             relative_base: new_relative_base,
-            i: i + 2
+            pointer: pointer + 2
           }}
       end
     end
 
-    defp intcode_at(intcode, i) do
-      Map.get(intcode, i, 0)
+    defp intcode_at(intcode, pointer) do
+      Map.get(intcode, pointer, 0)
     end
 
-    defp intcode_insert(intcode, i, value) do
-      Map.put(intcode, i, value)
+    defp intcode_insert(intcode, pointer, value) do
+      Map.put(intcode, pointer, value)
     end
 
     # output of [opcode | param_modes] referred to as ins_modes in variable names
@@ -141,9 +141,9 @@ defmodule Nine do
       [opcode | param_modes]
     end
 
-    defp get_value(intcode, i, relative_base, ins_modes, param_index) do
+    defp get_value(intcode, pointer, relative_base, ins_modes, param_index) do
       param_mode = Enum.at(ins_modes, param_index, 0)
-      param = intcode_at(intcode, i + param_index)
+      param = intcode_at(intcode, pointer + param_index)
 
       case param_mode do
         2 -> # relative
@@ -155,9 +155,9 @@ defmodule Nine do
       end
     end
 
-    defp get_address(intcode, i, relative_base, ins_modes, param_index) do
+    defp get_address(intcode, pointer, relative_base, ins_modes, param_index) do
       param_mode = Enum.at(ins_modes, param_index, 0)
-      param = intcode_at(intcode, i + param_index)
+      param = intcode_at(intcode, pointer + param_index)
 
       case param_mode do
         0 -> # position
