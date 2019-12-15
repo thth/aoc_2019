@@ -87,12 +87,6 @@ defmodule Thirteen do
             outputs: outputs ++ [output],
             pointer: pointer + 2
           }}
-        # 4 -> # enqueue output
-        #   output = get_value(intcode, pointer, relative_base, ins_modes, 1)
-        #   {:continue, %Intcode{state |
-        #     outputs: [output | outputs],
-        #     pointer: pointer + 2
-        #   }}
         5 -> # jump-if-true
           true? = get_value(intcode, pointer, relative_base, ins_modes, 1) != 0
           new_address = if true?,
