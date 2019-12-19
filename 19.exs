@@ -205,8 +205,8 @@ defmodule Nineteen do
   def two(input) do
     input
     |> parse()
-    |> scan_until_big()
-    |> two_answer()
+    |> scan_until_thicc()
+    |> (fn {x, y} -> x * 10_000 + y end).()
   end
 
   def parse(raw) do
@@ -215,18 +215,14 @@ defmodule Nineteen do
     |> Intcode.new()
   end
 
-  defp two_answer({x, y}) do
-    x * 10000 + y
-  end
-
   # noticed there's a gap around y = 1 -> y = 3;
   # take some default values which definitely aren't a terrible solution!
-  defp scan_until_big(intcode, x \\ 3, y \\ 4)
-  defp scan_until_big(intcode, x, y) do
+  defp scan_until_thicc(intcode, x \\ 3, y \\ 4)
+  defp scan_until_thicc(intcode, x, y) do
     {[out1], _intcode} = Intcode.input_and_take_all_outputs(intcode, [x, y])
     {[out2], _intcode} = Intcode.input_and_take_all_outputs(intcode, [x + 1, y])
     if !(out1 == 1 and out2 == 0) do
-      scan_until_big(intcode, x + 1, y)
+      scan_until_thicc(intcode, x + 1, y)
     else
       with true            <- (x - @santa_thicc > 0),
            {[1], _intcode} <- Intcode.input_and_take_all_outputs(intcode,
@@ -239,7 +235,7 @@ defmodule Nineteen do
                               end) do
         {x - 99, y}
       else
-        _ -> scan_until_big(intcode, x, y + 1)
+        _ -> scan_until_thicc(intcode, x, y + 1)
       end
     end
   end
