@@ -191,6 +191,7 @@ defmodule Nineteen do
 
   @x_max 49
   @y_max 49
+  @santa_thicc 100
 
   def one(input) do
     input
@@ -227,14 +228,15 @@ defmodule Nineteen do
     if !(out1 == 1 and out2 == 0) do
       scan_until_big(intcode, x + 1, y)
     else
-      with true <- (x - 100 > 0),
-           {[1], _intcode} <- Intcode.input_and_take_all_outputs(intcode, [x - 99, y + 99]),
-           all_coords <- (for i <- (x - 99)..x, j <- y..(y + 99), do: {i, j}),
-           true <- Enum.all?(all_coords, fn {i, j} ->
-             {[output], _intcode} = Intcode.input_and_take_all_outputs(intcode, [i, j])
-             output == 1
-           end)
-      do
+      with true            <- (x - @santa_thicc > 0),
+           {[1], _intcode} <- Intcode.input_and_take_all_outputs(intcode,
+                                [x - (@santa_thicc - 1), y + (@santa_thicc - 1)]),
+           all_coords      <- (for i <- (x - 99)..x, j <- y..(y + 99), do: {i, j}),
+           true            <- Enum.all?(all_coords, fn {i, j} ->
+                                {[output], _intcode} =
+                                  Intcode.input_and_take_all_outputs(intcode, [i, j])
+                                output == 1
+                              end) do
         {x - 99, y}
       else
         _ -> scan_until_big(intcode, x, y + 1)
