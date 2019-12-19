@@ -1,14 +1,11 @@
 defmodule Eighteen do
+  @memo_max_length 6
+
   def one(input) do
     input
     |> parse()
     |> map_key_distances()
-    |> find_paths()
-    |> Enum.min_by(fn {list} ->
-      Enum.reduce(list, 0, fn {_, d}, acc -> d + acc end)
-    end)
-    |> elem(0)
-    |> Enum.reduce(0, fn {_, d}, acc -> d + acc end)
+    |> find_shortest_path()
   end
 
   def two(input) do
@@ -105,33 +102,98 @@ defmodule Eighteen do
     end
   end
 
-  defp find_paths(distance_map) do
+  defp find_shortest_path(distance_map) do
+    try_stack =
+      distance_map
+      |> Map.get("@")
+      |> Enum.filter(fn {_key, %{required: required_keys}} ->
+        MapSet.size(required_keys) == 0
+      end)
+      |> Enum.map(fn {key, %{distance: distance}} ->
+        {[key], distance}
+      end)
+    memos =
+      distance_map
+      |> Map.delete("@")
+      |> Map.keys()
+      |> Enum.map(&({&1, %{}}))
+      |> Enum.into(%{})
     key_count = map_size(distance_map) - 1
-    find_paths(distance_map, [], "@", [], key_count)
-    |> List.flatten
+    find_shortest_path(distance_map, try_stack, {nil, nil}, memos, key_count)
   end
-  defp find_paths(_distance_map, path, _current_key, obtained_keys, key_count)
-    when length(obtained_keys) == key_count do
-    {path}
-    # path
+
+  defp find_shortest_path(_distance_map, [], {order, distance}, _memos, _key_count),
+    do: {Enum.reverse(order), distance}
+  defp find_shortest_path(distance_map, [{obtained_keys, current_distance} = new_shortest | rest],
+    {_, shortest_distance}, memos, key_count)
+    when length(obtained_keys) == key_count and current_distance < shortest_distance do
+    find_shortest_path(distance_map, rest, new_shortest, memos, key_count)
   end
-  defp find_paths(distance_map, path, current_key, obtained_keys, key_count) do
-    distance_map
-    |> Map.get(current_key)
-    |> Map.drop(obtained_keys) # remaining keys
-    |> Enum.filter(fn {_key, %{required: required_keys}} -> # accessible keys
-      MapSet.subset?(required_keys, MapSet.new(obtained_keys))
-    end)
-    # |> IO.inspect()
-    |> Enum.map(fn {key, %{distance: distance}} ->
-      new_path = path ++ [{key, distance}]
-      # find_paths(distance_map, new_path, key, [key | obtained_keys], key_count)
-      case find_paths(distance_map, new_path, key, [key | obtained_keys], key_count) do
-        list when is_list(list) -> List.flatten(list)
-        tuple -> tuple
+  # defp find_shortest_path(distance_map,
+  #   [{[current_key | _] = obtained_keys, current_distance} | rest],
+  #   nil, memos, key_count) do
+  #   new_memos = put_in(memos, [current_key, MapSet.new(obtained_keys)], current_distance)
+  # end
+  defp find_shortest_path(distance_map,
+    [{[current_key | _] = obtained_keys, current_distance} | rest],
+    {_, shortest_distance} = current_shortest, memos, key_count) do
+    IO.inspect(Enum.reverse(obtained_keys))
+    obtained_keys_mapset = MapSet.new(obtained_keys)
+    {memo_has_shorter?, new_memos} =
+      cond do
+        MapSet.size(obtained_keys_mapset) > @memo_max_length ->
+          {false, memos}
+        memos[current_key][obtained_keys_mapset] && current_distance >= memos[current_key][obtained_keys_mapset] ->
+          {true, memos}
+        true ->
+          {false, put_in(memos, [current_key, obtained_keys_mapset], current_distance)}
       end
-    end)
+    if memo_has_shorter? || shortest_distance && current_distance >= shortest_distance do
+      find_shortest_path(distance_map, rest, current_shortest, new_memos, key_count)
+    else
+      stack_additions =
+        distance_map
+        |> Map.get(current_key)
+        |> Map.drop(obtained_keys) # remaining keys
+        |> Enum.filter(fn {_key, %{required: required_keys}} -> # accessible_keys
+          MapSet.subset?(required_keys, MapSet.new(obtained_keys))
+        end)
+        |> Enum.map(fn {key, %{distance: distance}} ->
+          {[key | obtained_keys], distance + current_distance}
+        end)
+      find_shortest_path(distance_map, stack_additions ++ rest, current_shortest, new_memos, key_count)
+    end    
   end
+
+
+  # defp find_paths(distance_map) do
+  #   key_count = map_size(distance_map) - 1
+  #   find_paths(distance_map, [], "@", [], key_count)
+  #   |> List.flatten
+  # end
+  # defp find_paths(_distance_map, path, _current_key, obtained_keys, key_count)
+  #   when length(obtained_keys) == key_count do
+  #   IO.inspect(path)
+  #   {path}
+  #   # path
+  # end
+  # defp find_paths(distance_map, path, current_key, obtained_keys, key_count) do
+  #   distance_map
+  #   |> Map.get(current_key)
+  #   |> Map.drop(obtained_keys) # remaining keys
+  #   |> Enum.filter(fn {_key, %{required: required_keys}} -> # accessible keys
+  #     MapSet.subset?(required_keys, MapSet.new(obtained_keys))
+  #   end)
+  #   # |> IO.inspect()
+  #   |> Enum.map(fn {key, %{distance: distance}} ->
+  #     new_path = path ++ [{key, distance}]
+  #     # find_paths(distance_map, new_path, key, [key | obtained_keys], key_count)
+  #     case find_paths(distance_map, new_path, key, [key | obtained_keys], key_count) do
+  #       list when is_list(list) -> List.flatten(list)
+  #       tuple -> tuple
+  #     end
+  #   end)
+  # end
 
   # defp map_paths(map) do
   #   key_count = map_size(map.keys)
@@ -195,6 +257,21 @@ defmodule Eighteen do
 end
 
 # input = File.read!("input/18.txt")
+# input = "a..b..c..@..d"
+# input =
+#   """
+#   #########
+#   #b.A.@.a#
+#   #########
+#   """
+# input =
+#   """
+#   ########################
+#   #f.D.E.e.C.b.A.@.a.B.c.#
+#   ######################.#
+#   #d.....................#
+#   ########################
+#   """
 # input =
 #   """
 #   ########################
@@ -203,12 +280,6 @@ end
 #   ###A#B#C################
 #   ###g#h#i################
 #   ########################
-#   """
-# input =
-#   """
-#   #########
-#   #b.A.@.a#
-#   #########
 #   """
 input =
   """
@@ -222,17 +293,7 @@ input =
   #l.F..d...h..C.m#
   #################
   """
-# input =
-#   """
-#   ########################
-#   #f.D.E.e.C.b.A.@.a.B.c.#
-#   ######################.#
-#   #d.....................#
-#   ########################
-#   """
-# input = "a..b..c..@..d"
 
-:observer.start
 Eighteen.one(input)
 |> IO.inspect
 
