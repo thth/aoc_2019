@@ -1,11 +1,10 @@
 defmodule Eighteen do
-  @memo_max_length 6
-
   def one(input) do
     input
     |> parse()
     |> map_key_distances()
     |> find_shortest_path()
+    |> elem(1)
   end
 
   def two(input) do
@@ -59,15 +58,21 @@ defmodule Eighteen do
     map.keys
     |> Map.put(map.entrance, "@")
     |> Enum.map(fn {pos, key} ->
-      key_distance_map = calculate_key_distances(map, pos)
-      {key, key_distance_map}
+      key_distance_list = calculate_key_distances(map, pos)
+      {key, key_distance_list}
     end)
     |> Enum.into(%{})
   end
 
   defp calculate_key_distances(map, pos) do
     calculate_key_distances(map, pos, [], MapSet.new(), MapSet.new(), 0)
-    |> Enum.into(%{})
+    |> Enum.uniq()
+    |> Enum.group_by(fn {key, %{required: required}} ->
+      {key, required}
+    end)
+    |> Enum.map(fn {_, list} ->
+      Enum.min_by(list, fn {_, %{distance: distance}} -> distance end)
+    end)
   end
   defp calculate_key_distances(map, pos, key_list, past_tiles, required_keys, distance) do
     new_key_list =
@@ -137,12 +142,10 @@ defmodule Eighteen do
   defp find_shortest_path(distance_map,
     [{[current_key | _] = obtained_keys, current_distance} | rest],
     {_, shortest_distance} = current_shortest, memos, key_count) do
-    IO.inspect(Enum.reverse(obtained_keys))
+    # IO.inspect(Enum.reverse(obtained_keys))
     obtained_keys_mapset = MapSet.new(obtained_keys)
     {memo_has_shorter?, new_memos} =
       cond do
-        MapSet.size(obtained_keys_mapset) > @memo_max_length ->
-          {false, memos}
         memos[current_key][obtained_keys_mapset] && current_distance >= memos[current_key][obtained_keys_mapset] ->
           {true, memos}
         true ->
@@ -154,9 +157,13 @@ defmodule Eighteen do
       stack_additions =
         distance_map
         |> Map.get(current_key)
-        |> Map.drop(obtained_keys) # remaining keys
+        |> Keyword.drop(obtained_keys) # remaining keys
         |> Enum.filter(fn {_key, %{required: required_keys}} -> # accessible_keys
           MapSet.subset?(required_keys, MapSet.new(obtained_keys))
+        end)
+        |> Enum.group_by(fn {key, _} -> key end)
+        |> Enum.map(fn {_, list} ->
+          Enum.min_by(list, fn {_, %{distance: distance}} -> distance end)
         end)
         |> Enum.map(fn {key, %{distance: distance}} ->
           {[key | obtained_keys], distance + current_distance}
@@ -256,8 +263,14 @@ defmodule Eighteen do
   end
 end
 
-# input = File.read!("input/18.txt")
+input = File.read!("input/18.txt")
 # input = "a..b..c..@..d"
+# input =
+#   """
+#   @......
+#   .#####d
+#   abc....
+#   """
 # input =
 #   """
 #   #########
@@ -281,18 +294,18 @@ end
 #   ###g#h#i################
 #   ########################
 #   """
-input =
-  """
-  #################
-  #i.G..c...e..H.p#
-  ########.########
-  #j.A..b...f..D.o#
-  ########@########
-  #k.E..a...g..B.n#
-  ########.########
-  #l.F..d...h..C.m#
-  #################
-  """
+# input =
+#   """
+#   #################
+#   #i.G..c...e..H.p#
+#   ########.########
+#   #j.A..b...f..D.o#
+#   ########@########
+#   #k.E..a...g..B.n#
+#   ########.########
+#   #l.F..d...h..C.m#
+#   #################
+#   """
 
 Eighteen.one(input)
 |> IO.inspect
