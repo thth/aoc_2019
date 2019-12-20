@@ -110,36 +110,21 @@ defmodule Twenty do
       string
       |> String.split("\n")
       |> Enum.map(&String.to_charlist/1)
-    y_min =
+    {y_min, y_max} =
       charlists
       |> Enum.with_index()
-      |> Enum.find_value(fn {line, y} ->
-        if ?# in line, do: y, else: nil
-      end)
-    y_max =
-      charlists
-      |> Enum.with_index()
-      |> Enum.map(fn {line, y} -> {y, ?# in line} end)
-      |> Enum.chunk_by(fn {_, in_maze?} -> in_maze? end)
-      |> Enum.at(1)
-      |> List.last()
-      |> elem(0)
-    x_min =
+      |> Enum.filter(fn {line, _y} -> ?# in line end)
+      |> (fn lines ->
+        {elem(List.first(lines), 1), elem(List.last(lines), 1)}
+      end).()
+    {x_min, x_max} =
       charlists
       |> Enum.at(y_min)
       |> Enum.with_index()
-      |> Enum.find_value(fn {char, x} ->
-        if char == ?#, do: x, else: nil
-      end)
-    x_max =
-      charlists
-      |> Enum.at(y_min)
-      |> Enum.with_index()
-      |> Enum.map(fn {char, x} -> {x, char == ?\s} end)
-      |> Enum.chunk_by(fn {_, in_maze?} -> in_maze? end)
-      |> Enum.at(1)
-      |> List.last()
-      |> elem(0)
+      |> Enum.filter(fn {char, _x} -> char != ?\s end)
+      |> (fn line ->
+        {elem(List.first(line), 1), elem(List.last(line), 1)}
+      end).()
     map = %{
       tiles: MapSet.new(),
       portals: %{},
