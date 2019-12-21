@@ -192,17 +192,16 @@ defmodule TwentyOne do
   def one(input) do
     input
     |> parse()
-    # |> try_all_commands()
     |> run(one_command())
-    |> elem(0)
+    # |> IO.puts()
     |> List.last()
   end
 
   def two(input) do
     input
     |> parse()
-    |> run(one_command())
-    |> elem(0)
+    |> run(two_command())
+    # |> IO.puts
     |> List.last()
   end
 
@@ -213,236 +212,47 @@ defmodule TwentyOne do
   end
 
   defp run(intcode, command) do
-    intcode
-    |> Intcode.run_intcode()
-    |> Intcode.clear_outputs()
-    |> Intcode.insert_inputs(command)
-    |> Intcode.run_intcode()
-    |> Intcode.take_all_outputs()
+    {output, _intcode} =
+      intcode
+      |> Intcode.run_intcode()
+      |> Intcode.clear_outputs()
+      |> Intcode.insert_inputs(command)
+      |> Intcode.run_intcode()
+      |> Intcode.take_all_outputs()
+    output
   end
 
-defp one_command() do
-  """
-  NOT C T
-  AND A T
-  AND B T
-  AND D T
-  NOT B J
-  AND A J
-  AND D J
-  OR T J
-  NOT A T
-  OR T J
-  """
-  |> format_command()
-end
+  defp one_command() do
+    """
+    NOT C T
+    AND A T
+    AND B T
+    AND D T
 
-  # defp try_all_commands(intcode) do
-  #   all_commands()
-  #   |> Enum.find(fn command ->
-  #     {outputs, _intcode} = run(intcode, command)
-  #     case outputs do
-  #       [result] -> result
-  #       _charlist -> nil
-  #     end
-  #   end)
-  # end
+    NOT B J
+    AND A J
+    AND D J
+    OR T J
 
-  # defp all_commands() do
-  #   rl3 = 
-  #     0..3
-  #     |> Enum.reduce([], fn x, acc ->
-  #       commands =
-  #         (for a <- 0..1, b <- 0..1, c <- 0..1, bool <- 0..1, do: {[a, b, c], bool == 0})
-  #         |> Enum.map(fn {registers, bool} ->
-  #           {List.insert_at(registers, x, nil), bool}
-  #         end)
-  #       [commands | acc]
-  #     end)
-  #     |> List.flatten()
-  #   IO.inspect(rl3)
-  #   rl4 = for a <- 0..1, b <- 0..1, c <- 0..1, d <- 0..1, bool <- 0..1, do: {[a, b, c, d], bool == 0}
-  #   (rl3 ++ rl4)
-  #   |> Enum.map(fn spec ->
-  #     create_command(spec)
-  #   end)
-  # end
+    NOT A T
+    OR T J
+    """
+    |> format_command()
+  end
 
-  # defp create_command({[a, b, c, d] = registers, bool})
-  #   when a != nil and b != nil and c != nil and d != nil do
-  #   case Enum.count(registers, &(&1 == 0)) do
-  #     4 -> if bool, do: c4_4f_t(), else: c4_4f_f()
-  #     3 ->
-  #       char_true = Enum.find_index(registers, &(&1 == 1)) |> index_to_char()
-  #       if bool, do: c4_3f_t(char_true), else: c4_3f_f(char_true)
-  #     2 ->
-  #       trues =
-  #         registers
-  #         |> Enum.with_index()
-  #         |> Enum.filter(fn {register, _i} -> register == 1 end)
-  #         |> Enum.map(fn {_register, i} -> index_to_char(i) end)
-  #       if bool, do: c4_2f_t(trues), else: c4_2f_f(trues)
-  #     1 ->
-  #       char_false = Enum.find_index(registers, &(&1 == 0)) |> index_to_char()
-  #       if bool, do: c4_1f_t(char_false), else: c4_1f_f(char_false)
-  #     0 -> if bool, do: c4_0f_t(), else: c4_0f_f()
-  #   end
-  # end
+  defp two_command() do
+    """
+    NOT B T
+    NOT C J
+    OR T J
+    AND D J
+    AND H J
 
-  # defp c4_4f_t() do
-  #   """
-  #   NOT A J
-  #   NOT B T
-  #   AND T J
-  #   NOT C T
-  #   AND T J
-  #   NOT D T
-  #   AND T J
-  #   """
-  #   |> format_command()
-  # end
-
-  # defp c4_4f_f() do
-  #   """
-  #   NOT A T
-  #   NOT B J
-  #   AND J T
-  #   NOT C J
-  #   AND J T
-  #   NOT D J
-  #   AND J T
-  #   NOT T J
-  #   """
-  #   |> format_command()
-  # end
-
-  # defp c4_3f_t(char_true) do
-  #   [f1, f2, f3] = 'ABCD' -- char_true
-  #   [t1] = char_true
-  #   """
-  #   NOT #{<<f1>>} T
-  #   NOT #{<<f2>>} J
-  #   AND T J
-  #   NOT #{<<f3>>} T
-  #   AND T J
-  #   AND #{<<t1>>} J
-  #   """
-  #   |> format_command()
-  # end
-
-  # defp c4_3f_f(char_true) do
-  #   [f1, f2, f3] = 'ABCD' -- char_true
-  #   [t1] = char_true
-  #   """
-  #   NOT #{<<f1>>} T
-  #   NOT #{<<f2>>} J
-  #   AND J T
-  #   NOT #{<<f3>>} J
-  #   AND J T
-  #   AND #{<<t1>>} T
-  #   NOT T J
-  #   """
-  #   |> format_command()
-  # end
-
-  # defp c4_2f_t([char_true1, char_true2]) do
-  #   [f1, f2] = ('ABCD' -- char_true1) -- char_true2
-  #   [t1] = char_true1
-  #   [t2] = char_true2
-  #   """
-  #   NOT #{<<f1>>} J
-  #   NOT #{<<f2>>} T
-  #   AND T J
-  #   AND #{<<t1>>} J
-  #   AND #{<<t2>>} J
-  #   """
-  #   |> format_command()
-  # end
-
-  # defp c4_2f_f([char_true1, char_true2]) do
-  #   [f1, f2] = ('ABCD' -- char_true1) -- char_true2
-  #   [t1] = char_true1
-  #   [t2] = char_true2
-  #   """
-  #   NOT #{<<f1>>} J
-  #   NOT #{<<f2>>} T
-  #   AND J T
-  #   AND #{<<t1>>} T
-  #   AND #{<<t2>>} T
-  #   NOT T J
-  #   """
-  #   |> format_command()
-  # end
-
-  # defp c4_1f_t(char_false) do
-  #   [t1, t2, t3] = 'ABCD' -- char_false
-  #   [f1] = char_false
-  #   """
-  #   NOT #{<<f1>>} J
-  #   AND #{<<t1>>} J
-  #   AND #{<<t2>>} J
-  #   AND #{<<t3>>} J
-  #   """
-  #   |> format_command
-  # end
-
-  # defp c4_1f_f(char_false) do
-  #   [t1, t2, t3] = 'ABCD' -- char_false
-  #   [f1] = char_false
-  #   """
-  #   NOT #{<<f1>>} T
-  #   AND #{<<t1>>} T
-  #   AND #{<<t2>>} T
-  #   AND #{<<t3>>} T
-  #   NOT T J
-  #   """
-  #   |> format_command
-  # end
-
-  # defp c4_0f_t() do
-  #   """
-  #   AND A J
-  #   AND B J
-  #   AND C J
-  #   AND D J
-  #   """
-  #   |> format_command()
-  # end
-
-  # defp c4_0f_f() do
-  #   """
-  #   AND A T
-  #   AND B T
-  #   AND C T
-  #   AND D T
-  #   NOT T J
-  #   """
-  #   |> format_command()
-  # end
-
-  # defp create_command({[a, b, c, d] = registers, bool})
-  #   when (a == nil and b != nil and c != nil and d != nil)
-  #   or (a != nil and b == nil and c != nil and d != nil)
-  #   or (a != nil and b != nil and c == nil and d != nil)
-  #   or (a != nil and b != nil and c != nil and d == nil) do
-  #   case Enum.count(registers, &(&1 == 0)) do
-  #     4 -> if bool, do: c4_4f_t(), else: c4_4f_f()
-  #     3 ->
-  #       char_true = Enum.find_index(registers, &(&1 == 1)) |> index_to_char()
-  #       if bool, do: c4_3f_t(char_true), else: c4_3f_f(char_true)
-  #     2 ->
-  #       trues =
-  #         registers
-  #         |> Enum.with_index()
-  #         |> Enum.filter(fn {register, _i} -> register == 1 end)
-  #         |> Enum.map(fn {_register, i} -> index_to_char(i) end)
-  #       if bool, do: c4_2f_t(trues), else: c4_2f_f(trues)
-  #     1 ->
-  #       char_false = Enum.find_index(registers, &(&1 == 0)) |> index_to_char()
-  #       if bool, do: c4_1f_t(char_false), else: c4_1f_f(char_false)
-  #     0 -> if bool, do: c4_0f_t(), else: c4_0f_f()
-  #   end
-  # end
+    NOT A T
+    OR T J
+    """
+    |> format_command('\nRUN\n')
+  end
 
   defp format_command(string, ending \\ '\nWALK\n') do
     string
@@ -451,10 +261,6 @@ end
     |> String.to_charlist()
     |> Kernel.++(ending)
   end
-
-  # defp index_to_char(i) do
-  #   [i + 65]
-  # end
 end
 
 input = File.read!("input/21.txt")
@@ -462,5 +268,5 @@ input = File.read!("input/21.txt")
 TwentyOne.one(input)
 |> IO.inspect
 
-# TwentyOne.two(input)
-# |> IO.inspect
+TwentyOne.two(input)
+|> IO.inspect
