@@ -59,7 +59,6 @@ defmodule TwentyTwo do
     end
 
     def reverse_index_increment(i, deck_length, n) do
-      # rem((deck_length - i) * n, deck_length)
       rem(i * Modular.inverse(n, deck_length), deck_length)
     end
   end
@@ -67,12 +66,12 @@ defmodule TwentyTwo do
   @one_deck 0..10006
   @one_card 2019
 
-  @two_length 119_315_717_514_047
-  @two_times 101_741_582_076_661
-  @two_position 2020
+  # @two_length 119_315_717_514_047
+  # @two_times 101_741_582_076_661
+  # @two_position 2020
 
-  # @two_length 10007
-  # @two_times 1
+  @two_length 10007
+  @two_times 10006
   # @two_position 1538
 
   # @two_length 10
@@ -88,10 +87,11 @@ defmodule TwentyTwo do
 
   def two(input) do
     input
-    |> two_parse()
-    |> reverse_find_index(@two_times, @two_length, @two_position)
-    # funs = two_parse(input)
-    # Enum.map(0..9, &(reverse_find_index(funs, @two_times, @two_length, &1)))
+    # |> two_parse()
+    # |> reverse_find_index(@two_times, @two_length, @two_position)
+    funs = two_parse(input)
+    Enum.map(0..(@two_length - 1),
+      &(reverse_find_index(funs, @two_times, @two_length, &1)))
   end
 
   def parse(raw) do
@@ -138,14 +138,18 @@ defmodule TwentyTwo do
         apply(Deck, f, [acc, deck_length] ++ args)
       end)
     end
-    do_times(pos, fun, times)
+    do_times(pos, pos, fun, times)
   end
 
-  defp do_times(value, fun, times, i \\ 0)
-  defp do_times(value, _fun, times, i) when times == i, do: value
-  defp do_times(value, fun, times, i) do
-    if rem(i, 1_000) == 0, do: IO.inspect(i)
-    do_times(fun.(value), fun, times, i + 1)
+  defp do_times(original, value, fun, times, i \\ 0)
+  defp do_times(_original, value, _fun, times, i) when times == i, do: value
+  defp do_times(original, value, fun, times, i) do
+    # if rem(i, 1_000_000) == 0, do: IO.inspect(i)
+    # if value == original and i != 0 do
+    #   IO.inspect(i, label: "???")
+    #   :timer.sleep(1_000_000)
+    # end
+    do_times(original, fun.(value), fun, times, i + 1)
   end
 
   defp two_convert_to_function(string) do
@@ -178,13 +182,13 @@ defmodule TwentyTwo do
   end
 end
 
-input = File.read!("input/22.txt")
-# input =
-#   """
-#   deal with increment 7
-#   deal with increment 9
-#   cut -2
-#   """
+# input = File.read!("input/22.txt")
+input =
+  """
+  deal with increment 7
+  deal with increment 9
+  cut -2
+  """
 
 # TwentyTwo.one(input)
 # |> IO.inspect
