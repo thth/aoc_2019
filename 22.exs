@@ -63,20 +63,22 @@ defmodule TwentyTwo do
     end
   end
 
+  defmodule Power do
+    # translated from rosettacode's haskell modular exponentiation
+    def power(b, e, m, r \\ 1)
+    def power(_b, 0, _m, r), do: r
+    def power(b, e, m, r) when rem(e, 2) == 1, do:
+      power(rem(b * b, m), div(e, 2), m, rem(r * b, m))
+    def power(b, e, m, r), do:
+      power(rem(b * b, m), div(e, 2), m, r)
+  end
+
   @one_deck 0..10006
   @one_card 2019
 
-  # @two_length 119_315_717_514_047
-  # @two_times 101_741_582_076_661
-  # @two_position 2020
-
-  @two_length 10007
-  @two_times 10006
-  # @two_position 1538
-
-  # @two_length 10
-  # @two_times 1
-  # @two_position 7
+  @two_length 119_315_717_514_047
+  @two_times 101_741_582_076_661
+  @two_position 2020
 
   def one(input) do
     input
@@ -86,12 +88,17 @@ defmodule TwentyTwo do
   end
 
   def two(input) do
-    input
-    # |> two_parse()
-    # |> reverse_find_index(@two_times, @two_length, @two_position)
-    funs = two_parse(input)
-    Enum.map(0..(@two_length - 1),
-      &(reverse_find_index(funs, @two_times, @two_length, &1)))
+    deck = {0, 1} # {offset, increment}
+    shuffles = two_parse(input)
+    {step_off, step_inc} =
+      Enum.reduce(shuffles, deck, fn {f, args}, acc ->
+        apply(__MODULE__, f, [acc, @two_length] ++ args)
+      end)
+    increment = Power.power(step_inc, @two_times, @two_length)
+    offset = step_off * (1 - increment) * inv(rem(1 - step_inc, @two_length), @two_length)
+    offset = rem(offset, @two_length)
+
+    rem(get(offset, increment, @two_position, @two_length) + @two_length, @two_length)
   end
 
   def parse(raw) do
@@ -124,38 +131,23 @@ defmodule TwentyTwo do
     end
   end
 
+  defp shuffle(functions, deck) do
+    Enum.reduce(functions, deck, fn {fun, args}, acc ->
+      apply(Deck, fun, [acc | args])
+    end)
+  end
+
   def two_parse(raw) do
     raw
     |> String.trim()
     |> String.split("\n")
-    |> Enum.reverse()
-    |> Enum.map(&two_convert_to_function/1)
+    |> Enum.map(&i_give_up_parse/1)
   end
 
-  defp reverse_find_index(functions, times, deck_length, pos) do
-    fun = fn x ->
-      Enum.reduce(functions, x, fn {f, args}, acc ->
-        apply(Deck, f, [acc, deck_length] ++ args)
-      end)
-    end
-    do_times(pos, pos, fun, times)
-  end
-
-  defp do_times(original, value, fun, times, i \\ 0)
-  defp do_times(_original, value, _fun, times, i) when times == i, do: value
-  defp do_times(original, value, fun, times, i) do
-    # if rem(i, 1_000_000) == 0, do: IO.inspect(i)
-    # if value == original and i != 0 do
-    #   IO.inspect(i, label: "???")
-    #   :timer.sleep(1_000_000)
-    # end
-    do_times(original, fun.(value), fun, times, i + 1)
-  end
-
-  defp two_convert_to_function(string) do
+  defp i_give_up_parse(string) do
     cond do
       string == "deal into new stack" ->
-        {:reverse_index_stack, []}
+        {:i_give_up_stack, []}
       String.match?(string, ~r/^cut/) ->
         number =
           string
@@ -163,7 +155,7 @@ defmodule TwentyTwo do
           |> List.last()
           |> Integer.parse()
           |> elem(0)
-        {:reverse_index_cut, [number]}
+        {:i_give_up_cut, [number]}
       String.match?(string, ~r/^deal with/) ->
         number =
           string
@@ -171,27 +163,39 @@ defmodule TwentyTwo do
           |> List.last()
           |> Integer.parse()
           |> elem(0)
-        {:reverse_index_increment, [number]}
+        {:i_give_up_increment, [number]}
     end
   end
 
-  defp shuffle(functions, deck) do
-    Enum.reduce(functions, deck, fn {fun, args}, acc ->
-      apply(Deck, fun, [acc | args])
-    end)
+  def i_give_up_stack({offset, increment}, deck_length)  do
+    new_increment = rem(-increment, deck_length)
+    new_offset = rem(offset + new_increment, deck_length)
+    {new_offset, new_increment}
+  end
+
+  def i_give_up_cut({offset, increment}, _deck_length, n) do
+    new_offset = offset + (n * increment)
+    {new_offset, increment}
+  end
+
+  def i_give_up_increment({offset, increment}, deck_length, n) do
+    new_increment = rem(increment * inv(n, deck_length), deck_length)
+    {offset, new_increment}
+  end
+
+  defp inv(n, deck_length) do
+    Power.power(n, deck_length - 2, deck_length)
+  end
+
+  defp get(offset, increment, i, deck_length) do
+    rem(offset + (i * increment), deck_length)
   end
 end
 
-# input = File.read!("input/22.txt")
-input =
-  """
-  deal with increment 7
-  deal with increment 9
-  cut -2
-  """
+input = File.read!("input/22.txt")
 
-# TwentyTwo.one(input)
-# |> IO.inspect
+TwentyTwo.one(input)
+|> IO.inspect
 
 TwentyTwo.two(input)
 |> IO.inspect(charlists: :as_lists)
