@@ -88,6 +88,7 @@ defmodule TwentyTwo do
   end
 
   def two(input) do
+    # i gave up; this is /u/mcpower_'s solution translated to elixir
     deck = {0, 1} # {offset, increment}
     shuffles = two_parse(input)
     {step_off, step_inc} =
@@ -198,4 +199,4 @@ TwentyTwo.one(input)
 |> IO.inspect
 
 TwentyTwo.two(input)
-|> IO.inspect(charlists: :as_lists)
+|> IO.inspect
