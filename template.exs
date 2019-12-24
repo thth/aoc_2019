@@ -1,7 +1,7 @@
 ~w(One Two Three Four Five Six Seven Eight Nine Ten Eleven Twelve Thirteen Fourteen
 Fifteen Sixteen Seventeen Eighteen Nineteen Twenty TwentyOne TwentyTwo TwentyThree
 TwentyFour TwentyFive)
-|> Enum.with_index()
+|> Enum.with_index(1)
 |> Enum.each(fn {word, i} ->
   i = i |> Integer.to_string() |> String.pad_leading(2, "0")
   content =
@@ -17,18 +17,18 @@ TwentyFour TwentyFive)
         |> parse()
       end
 
-      def parse(raw) do
-        raw
+      defp parse(txt) do
+        txt
       end
     end
 
     input = File.read!("input/#{i}.txt")
 
     #{word}.one(input)
-    |> IO.inspect
+    |> IO.inspect()
 
     #{word}.two(input)
-    |> IO.inspect
+    |> IO.inspect()
     """
   File.write!("#{i}.exs", content)
 end)
