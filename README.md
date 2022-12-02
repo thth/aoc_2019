@@ -6,5 +6,6 @@ elixir solutions for advent of code 2019
 * __2019__
 * [2020](https://github.com/thth/aoc_2020)
 * [2021](https://github.com/thth/aoc_2021)
+* [2022](https://github.com/thth/aoc_2022)
 
 ![](https://user-images.githubusercontent.com/7574985/101267438-8b884c00-370d-11eb-8f38-beb3a17f2131.png)
