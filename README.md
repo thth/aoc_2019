@@ -3,6 +3,7 @@ elixir solutions for advent of code 2019
 * [2015](https://github.com/thth/aoc_2015)
 * [2016](https://github.com/thth/aoc_2016)
 * [2017](https://github.com/thth/aoc_2017)
+* [2018](https://github.com/thth/aoc_2018)
 * __2019__
 * [2020](https://github.com/thth/aoc_2020)
 * [2021](https://github.com/thth/aoc_2021)
